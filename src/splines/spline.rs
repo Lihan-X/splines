@@ -36,17 +36,31 @@ impl Spline{
         // S = a0 + a1*(x-x0) + a2*(x-x0)^2 + ... + a_order*(x-x0)^order
 
         // the n-order derivative at 0 and at the end of the interval is 0, which means:
-        // at 0
+        // There need to be order-1 addtional equations to do the linear equation solving, which means the total number of equations is n*m, which is the same as the number of unknowns (the params matrix has n*m elements).
         let mut equation_index = 0;
-        A[(equation_index, (n - 1))] = 1.0;
-        b[equation_index] = 0.0;
-        equation_index += 1;
-        // at the end of the interval
-        A[(equation_index, m * n - 1)] = (factorial(order as usize) as f64)*(x[x.len() - 1] - x[x.len() - 2]);
-        A[(equation_index, m * n - 2)] = 1.0;
-        b[equation_index] = 0.0;
-        equation_index += 1;
+        if order != 1 {
 
+            let order_end = (order as usize - 1) / 2;
+            print!("orders: {}, order_end: {}\n", order, order_end);
+            for i in 0 .. order_end {
+                // at the beginning of the interval, the order_start to n-order derivative is 0
+                print!("i: {}\n", i);
+                A[(equation_index, i+1)] = factorial(i+1) as f64;
+                b[equation_index] = 0.0;
+                equation_index += 1;
+
+                A[(equation_index, (m-1)*n + i+1)] = factorial(i+1) as f64 * (x[m] - x[m-1]).powi((i+1) as i32);
+                b[equation_index] = 0.0;
+                equation_index += 1;
+            }
+            if (order as usize - 1) % 2 != 0 {
+                // if order is odd, the order_end+1 derivative at the beginning is 0
+                A[(equation_index, order_end+1)] = factorial(order_end+1) as f64;
+                b[equation_index] = 0.0;
+                equation_index += 1;
+            }
+
+        }
         // at each x[i], the spline equation holds, which means:
         for i in 0..m {
             // at x[i], the constant term is y[i]
@@ -60,23 +74,25 @@ impl Spline{
             b[equation_index] = y[i + 1];
             equation_index += 1;
             if i != 0 {
-                // at x[i], S^(1..n)_{i-1} = S^(1..n)_{i}
+                // at x[i], S^(1..order)_{i-1} = S^(1..order)_{i}
                 for j in 1..(order as usize) {
-                    // S^(1..n)_{i}
+                    // S^(1..order)_{i}
                     A[(equation_index, i * n + j)] = factorial(j) as f64;
-                    // S^(1..n)_{i-1}
+                    // S^(1..order)_{i-1}
                     for k in j..(order as usize) { 
                         A[(equation_index, (i - 1) * n + k + 1)] = -(factorial(k) as f64)*(x[i] - x[i - 1]).powi((k - j) as i32);
                     }
                     b[equation_index] = 0.0;
                     equation_index += 1;
                 } 
-            }
+            } 
         }
+        print!("A:{:?}\n", A);
         // solve the linear equation Ax = b
         let flu = A.full_piv_lu();
         let result = flu.solve(&b);
         let params = Mat::from_fn(n, m, |i, j| result[j*n+i]);
+        print!("params: {:?}\n", params);
         Self { order, x, y, params }
     }
 
@@ -116,7 +132,7 @@ impl Spline{
                 // x is exactly at a data point
                 let mut result = 0.0;
                 for j in (order as usize)..(self.order as usize + 1) {
-                    result += self.params[(j, i)] * factorial(j) as f64;
+                    result += self.params[(j, i)] * factorial(j) as f64 * (x - self.x[i]).powi((j - order as usize) as i32);
                 }
                 result
             }
