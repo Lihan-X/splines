@@ -10,6 +10,15 @@ pub struct Spline{
 fn factorial(n: usize) -> usize {
     (1..=n).product()
 }
+
+fn param_of_kth_derivative_of_polynomial(order: usize, k: usize) -> f64 {
+    if k > order {
+        0.0
+    } else {
+        factorial(order) as f64 / factorial(order - k) as f64
+    }
+}
+
 impl Spline{
     pub fn new(order: u8, x: Vec<f64>, y: Vec<f64>) -> Self{
         // check if x and y have the same length
@@ -41,15 +50,17 @@ impl Spline{
         if order != 1 {
 
             let order_end = (order as usize - 1) / 2;
-            print!("orders: {}, order_end: {}\n", order, order_end);
             for i in 0 .. order_end {
                 // at the beginning of the interval, the order_start to n-order derivative is 0
-                print!("i: {}\n", i);
+                
                 A[(equation_index, i+1)] = factorial(i+1) as f64;
                 b[equation_index] = 0.0;
                 equation_index += 1;
-
-                A[(equation_index, (m-1)*n + i+1)] = factorial(i+1) as f64 * (x[m] - x[m-1]).powi((i+1) as i32);
+                for j in i..(order as usize) {
+                    print!("j: {}, and {}th derivative of polynomial: {}\n", j+1, i+1, param_of_kth_derivative_of_polynomial(j+1, i+1));
+                    A[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
+                }
+                
                 b[equation_index] = 0.0;
                 equation_index += 1;
             }
@@ -79,8 +90,9 @@ impl Spline{
                     // S^(1..order)_{i}
                     A[(equation_index, i * n + j)] = factorial(j) as f64;
                     // S^(1..order)_{i-1}
-                    for k in j..(order as usize) { 
-                        A[(equation_index, (i - 1) * n + k + 1)] = -(factorial(k) as f64)*(x[i] - x[i - 1]).powi((k - j) as i32);
+                    for k in j..(order as usize+1) {
+                        // print!("k: {}, and {}th derivative of polynomial: {}\n", k, j, param_of_kth_derivative_of_polynomial(k, j));
+                        A[(equation_index, (i - 1) * n + k)] = -param_of_kth_derivative_of_polynomial(k, j)*(x[i] - x[i - 1]).powi((k - j) as i32);
                     }
                     b[equation_index] = 0.0;
                     equation_index += 1;
@@ -92,7 +104,7 @@ impl Spline{
         let flu = A.full_piv_lu();
         let result = flu.solve(&b);
         let params = Mat::from_fn(n, m, |i, j| result[j*n+i]);
-        print!("params: {:?}\n", params);
+        // print!("params: {:?}\n", A*result - b);
         Self { order, x, y, params }
     }
 
@@ -131,8 +143,17 @@ impl Spline{
             Ok(i) => {
                 // x is exactly at a data point
                 let mut result = 0.0;
-                for j in (order as usize)..(self.order as usize + 1) {
-                    result += self.params[(j, i)] * factorial(j) as f64 * (x - self.x[i]).powi((j - order as usize) as i32);
+                if i != self.x.len() - 1 {
+                    // if x is not the last data point, we can use the params of the interval to compute the derivative
+                    for j in (order as usize)..(self.order as usize + 1) {
+                        result += self.params[(j, i)] * param_of_kth_derivative_of_polynomial(j, order as usize) * (x - self.x[i]).powi((j - order as usize) as i32);
+                    }
+                }
+            else {
+                    // if x is the last data point, we can use the params of the last interval to compute the derivative
+                    for j in (order as usize)..(self.order as usize + 1) {
+                        result += self.params[(j, i - 1)] * param_of_kth_derivative_of_polynomial(j, order as usize) * (x - self.x[i - 1]).powi((j - order as usize) as i32);
+                    }
                 }
                 result
             }
@@ -148,7 +169,7 @@ impl Spline{
                 let interval_index = i - 1;
                 let mut result = 0.0;
                 for j in (order as usize)..(self.order as usize + 1) {
-                    result += self.params[(j, interval_index)] * factorial(j) as f64 * (x - self.x[interval_index]).powi((j - order as usize) as i32);
+                    result += self.params[(j, interval_index)] * param_of_kth_derivative_of_polynomial(j, order as usize) * (x - self.x[interval_index]).powi((j - order as usize) as i32);
                 }
                 result
             }
