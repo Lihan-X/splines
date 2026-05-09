@@ -38,7 +38,7 @@ impl Spline{
         let m = x.len() - 1; // number of intervals
 
         // initialize params matrix
-        let mut A = Mat::<f64>::zeros(n*m, n*m);
+        let mut solve_matrix = Mat::<f64>::zeros(n*m, n*m);
         let mut b = Col::<f64>::zeros(n*m);
 
         // the spline equation at the same interval holds this way:
@@ -53,12 +53,12 @@ impl Spline{
             for i in 0 .. order_end {
                 // at the beginning of the interval, the order_start to n-order derivative is 0
                 
-                A[(equation_index, i+1)] = factorial(i+1) as f64;
+                solve_matrix[(equation_index, i+1)] = factorial(i+1) as f64;
                 b[equation_index] = 0.0;
                 equation_index += 1;
                 for j in i..(order as usize) {
                     print!("j: {}, and {}th derivative of polynomial: {}\n", j+1, i+1, param_of_kth_derivative_of_polynomial(j+1, i+1));
-                    A[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
+                    solve_matrix[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
                 }
                 
                 b[equation_index] = 0.0;
@@ -66,7 +66,7 @@ impl Spline{
             }
             if (order as usize - 1) % 2 != 0 {
                 // if order is odd, the order_end+1 derivative at the beginning is 0
-                A[(equation_index, order_end+1)] = factorial(order_end+1) as f64;
+                solve_matrix[(equation_index, order_end+1)] = factorial(order_end+1) as f64;
                 b[equation_index] = 0.0;
                 equation_index += 1;
             }
@@ -75,12 +75,12 @@ impl Spline{
         // at each x[i], the spline equation holds, which means:
         for i in 0..m {
             // at x[i], the constant term is y[i]
-            A[(equation_index, i * n)] = 1.0;
+            solve_matrix[(equation_index, i * n)] = 1.0;
             b[equation_index] = y[i];
             equation_index += 1;
             // at x[i+1], the equation equals y[i+1]
             for j in 0..n {
-                A[(equation_index, i * n + j)] = (x[i + 1] - x[i]).powi(j as i32);
+                solve_matrix[(equation_index, i * n + j)] = (x[i + 1] - x[i]).powi(j as i32);
             }
             b[equation_index] = y[i + 1];
             equation_index += 1;
@@ -88,23 +88,23 @@ impl Spline{
                 // at x[i], S^(1..order)_{i-1} = S^(1..order)_{i}
                 for j in 1..(order as usize) {
                     // S^(1..order)_{i}
-                    A[(equation_index, i * n + j)] = factorial(j) as f64;
+                    solve_matrix[(equation_index, i * n + j)] = factorial(j) as f64;
                     // S^(1..order)_{i-1}
                     for k in j..(order as usize+1) {
                         // print!("k: {}, and {}th derivative of polynomial: {}\n", k, j, param_of_kth_derivative_of_polynomial(k, j));
-                        A[(equation_index, (i - 1) * n + k)] = -param_of_kth_derivative_of_polynomial(k, j)*(x[i] - x[i - 1]).powi((k - j) as i32);
+                        solve_matrix[(equation_index, (i - 1) * n + k)] = -param_of_kth_derivative_of_polynomial(k, j)*(x[i] - x[i - 1]).powi((k - j) as i32);
                     }
                     b[equation_index] = 0.0;
                     equation_index += 1;
                 } 
             } 
         }
-        print!("A:{:?}\n", A);
-        // solve the linear equation Ax = b
-        let flu = A.full_piv_lu();
+        print!("solve_matrix:{:?}\n", solve_matrix);
+        // solve the linear equation solve_matrix*x = b
+        let flu = solve_matrix.full_piv_lu();
         let result = flu.solve(&b);
         let params = Mat::from_fn(n, m, |i, j| result[j*n+i]);
-        // print!("params: {:?}\n", A*result - b);
+        // print!("params: {:?}\n", solve_matrix*result - b);
         Self { order, x, y, params }
     }
 
