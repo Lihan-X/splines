@@ -149,7 +149,7 @@ impl Spline{
                         result += self.params[(j, i)] * param_of_kth_derivative_of_polynomial(j, order as usize) * (x - self.x[i]).powi((j - order as usize) as i32);
                     }
                 }
-            else {
+                else {
                     // if x is the last data point, we can use the params of the last interval to compute the derivative
                     for j in (order as usize)..(self.order as usize + 1) {
                         result += self.params[(j, i - 1)] * param_of_kth_derivative_of_polynomial(j, order as usize) * (x - self.x[i - 1]).powi((j - order as usize) as i32);
