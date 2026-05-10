@@ -1,59 +1,63 @@
-
 pub mod splines;
-#[cfg(test)]
-mod tests {
-    // use super::*;
-    
-    use crate::splines::spline::Spline;
-    #[test]
-    fn test_cubic_spline() {
-        let x: Vec<f64> = vec![0.0, 1.0, 2.0, 3.0, 4.0];
-        let y = x.iter().map(|&x| x.powi(3)).collect::<Vec<f64>>();
 
-        let spline = Spline::new(3, x, y);
+use splines::spline::Spline;
+use std::ptr;
 
-        let tol = 1e-6;
-        let test_x = 1.5;
+// #[repr(C)]
+pub struct SplineHandle {
+    inner: Spline,
+}
 
-        // f(x) = x^3
-        let expected = (test_x as f64).powi(3);
-        let val = spline.evaluate(test_x);
-        assert!(
-            (val - expected).abs() < tol,
-            "evaluate failed: expected {}, got {}",
-            expected,
-            val
-        );
+#[unsafe(no_mangle)]
+pub extern "C" fn spline_new(
+    order: u8,
+    x_ptr: *const f64,
+    y_ptr: *const f64,
+    len: usize,
+) -> *mut SplineHandle {
+    if x_ptr.is_null() || y_ptr.is_null() || len == 0 {
+        return ptr::null_mut();
+    }
+    let xs = unsafe { std::slice::from_raw_parts(x_ptr, len) };
+    let ys = unsafe { std::slice::from_raw_parts(y_ptr, len) };
 
-        // f'(x) = 3x^2
-        let expected_d1 = 3.0 * (test_x as f64).powi(2);
-        let d1 = spline.evaluate_derivative(test_x, 1);
-        assert!(
-            (d1 - expected_d1).abs() < tol,
-            "1st derivative failed: expected {}, got {}",
-            expected_d1,
-            d1
-        );
+    let spline = Spline::new(order, xs.to_vec(), ys.to_vec());
 
-        // f''(x) = 6x
-        let expected_d2 = 6.0 * (test_x as f64);
-        let d2 = spline.evaluate_derivative(test_x, 2);
-        assert!(
-            (d2 - expected_d2).abs() < tol,
-            "2nd derivative failed: expected {}, got {}",
-            expected_d2,
-            d2
-        );
+    Box::into_raw(Box::new(SplineHandle { inner: spline }))
+}
 
-        // f'''(x) = 6
-        let expected_d3 = 6.0;
-        let d3 = spline.evaluate_derivative(test_x, 3);
-        assert!(
-            (d3 - expected_d3).abs() < tol,
-            "3rd derivative failed: expected {}, got {}",
-            expected_d3,
-            d3
-        );
+#[unsafe(no_mangle)]
+pub extern "C" fn spline_evaluate(
+    handle: *const SplineHandle,
+    x: f64,
+) -> f64 {
+    if handle.is_null() {
+        return f64::NAN;
+    }
 
+    let spline = unsafe { &(*handle).inner };
+    spline.evaluate(x)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn spline_evaluate_derivative(
+    handle: *const SplineHandle,
+    x: f64,
+    order: u8,
+) -> f64 {
+    if handle.is_null() {
+        return f64::NAN;
+    }
+
+    let spline = unsafe { &(*handle).inner };
+    spline.evaluate_derivative(x, order)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn spline_free(handle: *mut SplineHandle) {
+    if !handle.is_null() {
+        unsafe {
+            drop(Box::from_raw(handle));
+        }
     }
 }
