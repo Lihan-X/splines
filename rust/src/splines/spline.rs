@@ -20,7 +20,7 @@ fn param_of_kth_derivative_of_polynomial(order: usize, k: usize) -> f64 {
 }
 
 impl Spline{
-    pub fn new(order: u8, x: Vec<f64>, y: Vec<f64>) -> Self{
+    pub fn new(order: u8, x: Vec<f64>, y: Vec<f64>, derivative_equality_at_start: Option<Vec<f64>>, derivative_value_at_start: Option<Vec<f64>>, derivative_equality_at_end: Option<Vec<f64>>, derivative_value_at_end: Option<Vec<f64>>) -> Self{
         // check if x and y have the same length
         if x.len() != y.len(){
             panic!("x and y must have the same length");
@@ -30,7 +30,15 @@ impl Spline{
         if x.windows(2).any(|w| w[0] > w[1]) {
             panic!("x must be sorted from small to big");
         }
-
+        // check if the derivative equality constraints are valid
+        let mut derivative_specified = false;
+        if derivative_equality_at_end.is_some() {
+            let constraints_length = derivative_equality_at_end.as_ref().unwrap().len()+derivative_equality_at_start.as_ref().unwrap().len();
+            assert!(constraints_length == order as usize-1, "the number of derivative equality constraints must be equal to order-1");
+            assert!(derivative_equality_at_start.as_ref().unwrap().len() == derivative_value_at_start.as_ref().unwrap().len(), "The equality constraints at the start and the value constraints at the start must have the same length");
+            assert!(derivative_equality_at_end.as_ref().unwrap().len() == derivative_value_at_end.as_ref().unwrap().len(), "The equality constraints at the end and the value constraints at the end must have the same length");
+            derivative_specified = true;
+        }
         
         // compute the params matrix
         // solve the linear equation 
@@ -47,7 +55,7 @@ impl Spline{
         // the n-order derivative at 0 and at the end of the interval is 0, which means:
         // There need to be order-1 addtional equations to do the linear equation solving, which means the total number of equations is n*m, which is the same as the number of unknowns (the params matrix has n*m elements).
         let mut equation_index = 0;
-        if order != 1 {
+        if order != 1 && !derivative_specified {
 
             let order_end = (order as usize - 1) / 2;
             for i in 0 .. order_end {
@@ -71,6 +79,24 @@ impl Spline{
                 equation_index += 1;
             }
 
+        }
+        else if derivative_specified {
+            for i in 0..derivative_equality_at_start.as_ref().unwrap().len() {
+                // at the beginning of the interval, the derivative_equality_at_start[i] derivative is equal to derivative_value_at_start[i]
+                solve_matrix[(equation_index, i+1)] = factorial(i+1) as f64;
+                b[equation_index] = derivative_value_at_start.as_ref().unwrap()[i];
+                equation_index += 1;
+            }
+            for i in 0..derivative_equality_at_end.as_ref().unwrap().len() {
+                // at the end of the interval, the derivative_equality_at_end[i] derivative is equal to derivative_value_at_end[i]
+                for j in i..(order as usize) {
+                    print!("j: {}, and {}th derivative of polynomial: {}\n", j+1, i+1, param_of_kth_derivative_of_polynomial(j+1, i+1));
+                    solve_matrix[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
+                }
+                b[equation_index] = derivative_value_at_end.as_ref().unwrap()[i];
+                equation_index += 1;
+            
+            }
         }
         // at each x[i], the spline equation holds, which means:
         for i in 0..m {
