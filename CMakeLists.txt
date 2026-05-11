@@ -28,11 +28,49 @@ add_library(${PROJECT_NAME} SHARED
 add_dependencies(${PROJECT_NAME} spline_rs)
 
 target_include_directories(${PROJECT_NAME} PUBLIC
-    ${CMAKE_SOURCE_DIR}/cpp
+    ${CMAKE_SOURCE_DIR}/cpp/include
 )
 
 target_link_directories(${PROJECT_NAME} PRIVATE
     ${RUST_PROJECT_DIR}/target/release
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE RUST_LIB)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${RUST_LIB})
+
+install(
+        TARGETS
+        ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)
+
+install(
+        DIRECTORY cpp/include/
+        DESTINATION include
+)
+
+install(
+    FILES ${RUST_LIB}
+    DESTINATION lib
+)
+
+# tests
+include(FetchContent)
+
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.5.4
+)
+
+FetchContent_MakeAvailable(Catch2)
+add_executable(test_splines
+    tests/cubic_spline.cpp
+)
+target_link_libraries(test_splines PRIVATE
+    ${PROJECT_NAME}
+    Catch2::Catch2WithMain
+)
+add_test(NAME test_splines COMMAND test_splines)
+enable_testing()
