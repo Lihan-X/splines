@@ -65,7 +65,6 @@ impl Spline{
                 b[equation_index] = 0.0;
                 equation_index += 1;
                 for j in i..(order as usize) {
-                    print!("j: {}, and {}th derivative of polynomial: {}\n", j+1, i+1, param_of_kth_derivative_of_polynomial(j+1, i+1));
                     solve_matrix[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
                 }
                 
@@ -90,7 +89,6 @@ impl Spline{
             for i in 0..derivative_equality_at_end.as_ref().unwrap().len() {
                 // at the end of the interval, the derivative_equality_at_end[i] derivative is equal to derivative_value_at_end[i]
                 for j in i..(order as usize) {
-                    print!("j: {}, and {}th derivative of polynomial: {}\n", j+1, i+1, param_of_kth_derivative_of_polynomial(j+1, i+1));
                     solve_matrix[(equation_index, (m-1)*n + j+1)] = param_of_kth_derivative_of_polynomial(j+1, i+1) * (x[m] - x[m-1]).powi((j - i) as i32);
                 }
                 b[equation_index] = derivative_value_at_end.as_ref().unwrap()[i];
@@ -117,7 +115,6 @@ impl Spline{
                     solve_matrix[(equation_index, i * n + j)] = factorial(j) as f64;
                     // S^(1..order)_{i-1}
                     for k in j..(order as usize+1) {
-                        // print!("k: {}, and {}th derivative of polynomial: {}\n", k, j, param_of_kth_derivative_of_polynomial(k, j));
                         solve_matrix[(equation_index, (i - 1) * n + k)] = -param_of_kth_derivative_of_polynomial(k, j)*(x[i] - x[i - 1]).powi((k - j) as i32);
                     }
                     b[equation_index] = 0.0;
@@ -125,12 +122,10 @@ impl Spline{
                 } 
             } 
         }
-        print!("solve_matrix:{:?}\n", solve_matrix);
         // solve the linear equation solve_matrix*x = b
         let flu = solve_matrix.full_piv_lu();
         let result = flu.solve(&b);
         let params = Mat::from_fn(n, m, |i, j| result[j*n+i]);
-        // print!("params: {:?}\n", solve_matrix*result - b);
         Self { order, x, y, params }
     }
 
