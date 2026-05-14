@@ -5,8 +5,6 @@ project(splines
   LANGUAGES CXX
 )
 
-find_package(ament_cmake REQUIRED)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -102,9 +100,6 @@ install(EXPORT SplinesTargets
   DESTINATION ${INSTALL_CMAKE_CONFIG_DIR}
 )
 
-# Export targets for find_package
-ament_export_targets(SplinesTargets HAS_LIBRARY_TARGET)
-ament_export_libraries(${PROJECT_NAME})
 
 # tests
 include(FetchContent)
@@ -125,5 +120,3 @@ target_link_libraries(test_splines PRIVATE
 )
 add_test(NAME test_splines COMMAND test_splines)
 enable_testing()
-
-ament_package()
