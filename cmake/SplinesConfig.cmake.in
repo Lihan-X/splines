@@ -4,4 +4,4 @@ get_filename_component(Splines_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include("${Splines_CMAKE_DIR}/SplinesTargets.cmake")
 
 check_required_components(Splines)
-get_target_property(Splines_INCLUDE_DIRS Splines INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(Splines_INCLUDE_DIRS Splines::splines INTERFACE_INCLUDE_DIRECTORIES)
